@@ -3,7 +3,7 @@
 #include"./downloader/downloader.h"
 #include"./scanner/scanner.h"
 
-int main()
+int main(int argc, char **argv)
 {
     printf("\nMain");
 
