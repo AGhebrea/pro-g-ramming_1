@@ -1,15 +1,16 @@
+#include <pthread.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
+#include <sys/stat.h>
 #include <unistd.h>
-#include <pthread.h>
+#include <errno.h>
 
 const char* TARGET_DIR = "downloads";
 bool download_finished = false;
 
 void* download_from_url(void* arg);
-int downloaded_so_far(void* arg);
 int get_download_size(char* url);
 
 int downloader_main()
@@ -30,19 +31,43 @@ int downloader_main()
         printf("Failed to create thread.\n");
         exit(EXIT_FAILURE);
     }
-    
+
+    struct stat sb;
+
+    char *path = NULL;
+    char* fmt = "%s/%s";
+    size_t n = snprintf(NULL, 0, fmt, TARGET_DIR, filename);
+
+    path = malloc(sizeof(char) * (n + 1));
+
+    snprintf(path, n+1, fmt, TARGET_DIR, filename);
+    // todo: error handling
+    // printf("cmd: [%s]\n", cmd);
+
+    while (stat(path, &sb) && errno == ENOENT) {
+        usleep(100000);
+    }
+    char *output_str = NULL;
+    char* fmt_output = "Downloading: %ld/%d\r";
+
     printf("\nDownloading %s\n", filename);
     while (! download_finished) {
-        printf("Downloading: %d/%d \\\r", downloaded_so_far(filename), download_size);
-        usleep(1000);
-        printf("Downloading: %d/%d |\r", downloaded_so_far(filename), download_size);
-        usleep(1000);
-        printf("Downloading: %d/%d /\r", downloaded_so_far(filename), download_size);
-        usleep(1000);
-        printf("Downloading: %d/%d -\r", downloaded_so_far(filename), download_size);
+        // errno = 0;
+        stat(path, &sb);
+        // printf("\ndebug: %s", strerror(errno));
+
+        n = snprintf(NULL, 0, fmt_output, sb.st_size, download_size);
+        output_str = malloc(sizeof(char) * (n + 1));
+        snprintf(output_str, n+1, fmt_output, sb.st_size, download_size);
+
+        // printf("Downloading: %ld/%d\r", sb.st_size, download_size);
+        write(STDOUT_FILENO, output_str, n + 1);
+        usleep(300000);
+        free(output_str);
     }
     
     printf("\nDownloader online.");
+    free(path);
     return 0;
 }
 
@@ -66,42 +91,6 @@ void* download_from_url(void* arg) {
     download_finished = true;
 
     return NULL;
-}
-
-int downloaded_so_far(void* arg) {
-    char *filename = (char*) arg;
-
-    char* cmd_options = "-b";
-    char* cmd_processing = "awk '{print $1}'";
-    char* fmt = "du %s %s/%s | %s";
-
-    char *cmd = NULL;
-    size_t n = snprintf(NULL, 0, fmt, cmd_options, TARGET_DIR, filename, cmd_processing);
-
-    cmd = malloc(sizeof(char) * (n + 1));
-
-    snprintf(cmd, n+1, fmt, cmd_options, TARGET_DIR, filename, cmd_processing);
-    // todo: error handling
-    // printf("cmd: [%s]\n", cmd);
-
-    FILE *pf;
-    char data[50];
-    pf = popen(cmd, "r");
-
-    if (!pf) {
-        printf("Could not open pipe for output.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // Grab data from process execution
-    fgets(data, 50, pf);
- 
-    int size = atoi(data);
- 
-    if (pclose(pf) != 0)
-        fprintf(stderr," Error: Failed to close command stream \n");
-
-    return size;
 }
 
 int get_download_size(char* url) {
@@ -135,5 +124,6 @@ int get_download_size(char* url) {
     if (pclose(pf) != 0)
         fprintf(stderr," Error: Failed to close command stream \n");
 
+    free(cmd);
     return size;
 }
