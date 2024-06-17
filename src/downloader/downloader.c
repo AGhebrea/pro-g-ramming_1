@@ -42,7 +42,6 @@ int downloader_main()
 
     snprintf(path, n+1, fmt, TARGET_DIR, filename);
     // todo: error handling
-    // printf("cmd: [%s]\n", cmd);
 
     while (stat(path, &sb) && errno == ENOENT) {
         usleep(100000);
@@ -60,7 +59,6 @@ int downloader_main()
         output_str = malloc(sizeof(char) * (n + 1));
         snprintf(output_str, n+1, fmt_output, sb.st_size, download_size);
 
-        // printf("Downloading: %ld/%d\r", sb.st_size, download_size);
         write(STDOUT_FILENO, output_str, n + 1);
         usleep(300000);
         free(output_str);
@@ -84,12 +82,12 @@ void* download_from_url(void* arg) {
 
     snprintf(cmd, n+1, fmt, cmd_options, TARGET_DIR, url);
     // todo: error handling
-    // printf("cmd: [%s]\n", cmd);
 
     system(cmd);
 
     download_finished = true;
 
+    free(cmd);
     return NULL;
 }
 
@@ -105,7 +103,6 @@ int get_download_size(char* url) {
 
     snprintf(cmd, n+1, fmt, cmd_options, url, cmd_processing);
     // todo: error handling
-    // printf("cmd: [%s]\n", cmd);
 
     FILE *pf;
     char data[50];
