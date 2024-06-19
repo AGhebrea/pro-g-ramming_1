@@ -8,26 +8,26 @@
 #include <errno.h>
 
 const char* TARGET_DIR = "downloads";
-bool download_finished = false;
+bool finished = false;
 
 void* download_from_url(void* arg);
 int get_download_size(char* url);
 
 int downloader_main()
 {
-    pthread_t download_t;
-    int download_ret;
+    pthread_t thread_t;
+    int ret;
 
     char* url = "https://artix.unixpeople.org/iso/artix-base-dinit-20230814-x86_64.iso";
     // char* url = "https://artix.unixpeople.org/iso/artix-base-dinit-20230814-x86_64.iso.sig";
     char* last_slash = strrchr(url, '/');
     char* filename = last_slash ? last_slash + 1 : url;
 
-    int download_size = get_download_size(url);
+    int size = get_download_size(url);
 
-    download_ret = pthread_create(&download_t, NULL, download_from_url, url);
+    ret = pthread_create(&thread_t, NULL, download_from_url, url);
     
-    if (download_ret != 0) {
+    if (ret != 0) {
         printf("Failed to create thread.\n");
         exit(EXIT_FAILURE);
     }
@@ -50,14 +50,14 @@ int downloader_main()
     char* fmt_output = "Downloading: %ld/%d\r";
 
     printf("\nDownloading %s\n", filename);
-    while (! download_finished) {
+    while (! finished) {
         // errno = 0;
         stat(path, &sb);
         // printf("\ndebug: %s", strerror(errno));
 
-        n = snprintf(NULL, 0, fmt_output, sb.st_size, download_size);
+        n = snprintf(NULL, 0, fmt_output, sb.st_size, size);
         output_str = malloc(sizeof(char) * (n + 1));
-        snprintf(output_str, n+1, fmt_output, sb.st_size, download_size);
+        snprintf(output_str, n+1, fmt_output, sb.st_size, size);
 
         write(STDOUT_FILENO, output_str, n + 1);
         usleep(300000);
@@ -85,7 +85,7 @@ void* download_from_url(void* arg) {
 
     system(cmd);
 
-    download_finished = true;
+    finished = true;
 
     free(cmd);
     return NULL;
