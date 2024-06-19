@@ -8,8 +8,15 @@
 #include <errno.h>
 
 const char* TARGET_DIR = "downloads";
-bool finished = false;
 
+struct shared_data_t {
+    bool finished;
+    pthread_mutex_t mutex;
+};
+
+struct shared_data_t shared_data;
+
+void init_shared_data();
 void* download_from_url(void* arg);
 int get_download_size(char* url);
 
@@ -17,6 +24,7 @@ int downloader_main()
 {
     pthread_t thread_t;
     int ret;
+    bool exit_flag = false;
 
     char* url = "https://artix.unixpeople.org/iso/artix-base-dinit-20230814-x86_64.iso";
     // char* url = "https://artix.unixpeople.org/iso/artix-base-dinit-20230814-x86_64.iso.sig";
@@ -50,10 +58,18 @@ int downloader_main()
     char* fmt_output = "Downloading: %ld/%d\r";
 
     printf("\nDownloading %s\n", filename);
-    while (! finished) {
-        // errno = 0;
+    pthread_mutex_lock(&shared_data.mutex);
+    if(shared_data.finished == true)
+        exit_flag = true;
+    pthread_mutex_unlock(&shared_data.mutex);
+    while (! exit_flag) {
+        // todo: make shared_data.finished write only 
+        // by downloader thread ???
+        pthread_mutex_lock(&shared_data.mutex);
+        if(shared_data.finished == true)
+            exit_flag = true;
+        pthread_mutex_unlock(&shared_data.mutex);
         stat(path, &sb);
-        // printf("\ndebug: %s", strerror(errno));
 
         n = snprintf(NULL, 0, fmt_output, sb.st_size, size);
         output_str = malloc(sizeof(char) * (n + 1));
@@ -67,6 +83,12 @@ int downloader_main()
     printf("\nDownloader online.");
     free(path);
     return 0;
+}
+
+void init_shared_data()
+{
+    shared_data.finished = false;
+    pthread_mutex_init(&shared_data.mutex, NULL);
 }
 
 void* download_from_url(void* arg) {
@@ -85,7 +107,9 @@ void* download_from_url(void* arg) {
 
     system(cmd);
 
-    finished = true;
+    pthread_mutex_lock(&shared_data.mutex);
+    shared_data.finished = true;
+    pthread_mutex_unlock(&shared_data.mutex);
 
     free(cmd);
     return NULL;
