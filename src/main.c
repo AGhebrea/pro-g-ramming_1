@@ -7,8 +7,8 @@ int main(int argc, char **argv)
 {
     printf("\nMain");
 
-    scanner_main();
-    // downloader_main();
+    scanner_main(argc, argv);
+    downloader_main();
 
     printf("\n\n");
 

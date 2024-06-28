@@ -7,32 +7,36 @@
 #include<sys/ioctl.h>
 #include"scanner.h"
 
-char *evstr(uint32_t);
+char* evstr(uint32_t);
+void perrorExit(char*);
+char* getFilePath(int, char**);
 
 // TODO: 
-//  - error handling 
+//  - proper error handling 
 //  - daemonize
 //  - custom rules + targets
-//  - sort files ONLY when all files in folder were CLOSE_WRITEd
+//  - sort files ONLY when it is safe to do so
 
-int scanner_main()
+int scanner_main(int argc, char** argv)
 {
     struct inotify_event buff[12];
     int inotify_fd;
     int watch_fd;
     int count;
+    char* filepath;
+    filepath = getFilePath(argc,argv);
     inotify_fd = inotify_init();
     if(inotify_fd < 0)
-        perror("inotify_init: ");
-    watch_fd = inotify_add_watch(inotify_fd, "./testdir/", IN_ALL_EVENTS);
+        perrorExit("inotify_init: ");
+    watch_fd = inotify_add_watch(inotify_fd, filepath, IN_ALL_EVENTS);
     if(watch_fd < 0)
-        perror("inotify_add_watch: ");
+        perrorExit("inotify_add_watch: ");
     fflush(stdout);
     while(1){
         errno = 0;
         count = read(inotify_fd, &buff, sizeof(struct inotify_event) * 12);
         if(errno)
-            perror("\nread");
+            perrorExit("\nread");
         for(int i = 0; i < 12; ++i){
             // this was an empirical find, TODO:
             // check out what it actually means and if
@@ -43,6 +47,21 @@ int scanner_main()
         }
         fflush(stdout);
         }
+}
+
+char* getFilePath(int argc, char** argv)
+{
+    // HACK:
+    if(argc != 2)
+        perrorExit("args");
+
+    return *(argv+1);
+}
+
+void perrorExit(char *str)
+{   
+    perror(str);
+    exit(1);
 }
 
 char* evstr(uint32_t mask)
