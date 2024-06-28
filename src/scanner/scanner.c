@@ -6,10 +6,12 @@
 #include<errno.h>
 #include<sys/ioctl.h>
 #include"scanner.h"
+#include<pthread.h>
 
 char* evstr(uint32_t);
-void perrorExit(char*);
 char* getFilePath(int, char**);
+void perrorExit(char*);
+void* scanner_loop(void*);
 
 // TODO: 
 //  - proper error handling 
@@ -17,14 +19,26 @@ char* getFilePath(int, char**);
 //  - custom rules + targets
 //  - sort files ONLY when it is safe to do so
 
+// TODO: remove thread hack
 int scanner_main(int argc, char** argv)
+{
+    pthread_t scanner;
+    char* filepath;
+    filepath = getFilePath(argc,argv);
+
+    // HACK:
+    pthread_create(&scanner, NULL, scanner_loop, filepath);
+
+    return 1;
+}
+
+void* scanner_loop(void *path)
 {
     struct inotify_event buff[12];
     int inotify_fd;
     int watch_fd;
     int count;
-    char* filepath;
-    filepath = getFilePath(argc,argv);
+    char *filepath = (char*)path;
     inotify_fd = inotify_init();
     if(inotify_fd < 0)
         perrorExit("inotify_init: ");
